@@ -349,6 +349,10 @@ class Zappa(object):
 
         # Need to manually add setuptools
         pkg_list.append('setuptools')
+        
+        # Hack to work around kappa 0.6.0 deployment bug...
+        os.environ["LANG"] = "en_US.UTF-8"
+        
         pip.main(["install", "--quiet", "--target", venv_site_packages_dir] + pkg_list)
 
         return ve_path
