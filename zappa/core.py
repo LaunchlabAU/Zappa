@@ -345,10 +345,11 @@ class Zappa(object):
 
         # Use pip to download zappa's dependencies. Copying from current venv causes issues with things like PyYAML that installs as yaml
         zappa_deps = self.get_deps_list('zappa')
-        pkg_list = ['{0!s}=={1!s}'.format(dep, version) for dep, version in zappa_deps]
+        pkg_list = ['{0!s}=={1!s}'.format(dep, version) for dep, version in zappa_deps if dep.lower() != 'kappa']
 
         # Need to manually add setuptools
         pkg_list.append('setuptools')
+        pkg_list.append('https://github.com/LaunchlabAU/kappa/archive/0.6.0-deployable.zip')
         
         # Hack to work around kappa 0.6.0 deployment bug...
         os.environ["LANG"] = "en_US.UTF-8"
