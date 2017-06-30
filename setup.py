@@ -11,7 +11,7 @@ try:
 except ImportError:
     README = open(os.path.join(os.path.dirname(__file__), 'README.md'), 'r', encoding="utf-8").read()
 
-with open(os.path.join(os.path.dirname(__file__), 'requirements.txt')) as f:
+with open(os.path.join(os.path.dirname(__file__), 'requirements_for_setup.txt')) as f:
     required = f.read().splitlines()
 
 with open(os.path.join(os.path.dirname(__file__), 'test_requirements.txt')) as f:
