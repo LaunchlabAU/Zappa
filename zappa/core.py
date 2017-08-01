@@ -914,15 +914,14 @@ class Zappa(object):
             self.get_credentials_arn()
         if not aws_kms_key_arn:
             aws_kms_key_arn = ''
-
         if not aws_environment_variables:
             aws_environment_variables = {}
-        else:
-            # Get any remote aws lambda env vars so they don't get trashed
-            # Related: https://github.com/Miserlou/Zappa/issues/765
-            lambda_aws_environment_variables = self.lambda_client\
-                .get_function_configuration(FunctionName=function_name)["Environment"].get("Variables", {})
 
+        # Check if there are any remote aws lambda env vars so they don't get trashed.
+        # https://github.com/Miserlou/Zappa/issues/987,  Related: https://github.com/Miserlou/Zappa/issues/765
+        lambda_aws_config = self.lambda_client.get_function_configuration(FunctionName=function_name)
+        if "Environment" in lambda_aws_config:
+            lambda_aws_environment_variables = lambda_aws_config["Environment"].get("Variables", {})
             # Append keys that are remote but not in settings file
             for key, value in lambda_aws_environment_variables.items():
                 if key not in aws_environment_variables:
@@ -1291,7 +1290,7 @@ class Zappa(object):
 
         return "https://{}.execute-api.{}.amazonaws.com/{}".format(api_id, self.boto_session.region_name, stage_name)
 
-    def add_binary_support(self, api_id):
+    def add_binary_support(self, api_id, cors=False):
             """
             Add binary support
             """
@@ -1309,7 +1308,27 @@ class Zappa(object):
                     ]
                 )
 
-    def remove_binary_support(self, api_id):
+            if cors:
+                # fix for issue 699, cors+binary support don't work together
+                # go through each resource and update the contentHandling type
+                response = self.apigateway_client.get_resources(restApiId=api_id)
+                resource_ids = [item['id'] for item in response['items']]
+
+                for resource_id in resource_ids:
+                    self.apigateway_client.update_integration(
+                        restApiId=api_id,
+                        resourceId=resource_id,
+                        httpMethod='OPTIONS',
+                        patchOperations=[
+                            {
+                                "op": "replace",
+                                "path": "/contentHandling",
+                                "value": "CONVERT_TO_TEXT"
+                            }
+                        ]
+                    )
+
+    def remove_binary_support(self, api_id, cors=False):
         """
         Remove binary support
         """
@@ -1326,6 +1345,24 @@ class Zappa(object):
                     }
                 ]
             )
+        if cors:
+            # go through each resource and change the contentHandling type
+            response = self.apigateway_client.get_resources(restApiId=api_id)
+            resource_ids = [item['id'] for item in response['items']]
+
+            for resource_id in resource_ids:
+                self.apigateway_client.update_integration(
+                    restApiId=api_id,
+                    resourceId=resource_id,
+                    httpMethod='OPTIONS',
+                    patchOperations=[
+                        {
+                            "op": "replace",
+                            "path": "/contentHandling",
+                            "value": ""
+                        }
+                    ]
+                )
 
     def get_api_keys(self, api_id, stage_name):
         """

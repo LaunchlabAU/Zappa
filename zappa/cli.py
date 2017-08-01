@@ -751,7 +751,7 @@ class ZappaCLI(object):
 
             # Add binary support
             if self.binary_support:
-                self.zappa.add_binary_support(api_id=api_id)
+                self.zappa.add_binary_support(api_id=api_id, cors=self.cors)
 
             # Deploy the API!
             endpoint_url = self.deploy_api_gateway(api_id)
@@ -797,6 +797,9 @@ class ZappaCLI(object):
             conf = function_response['Configuration']
             last_updated = parser.parse(conf['LastModified'])
             last_updated_unix = time.mktime(last_updated.timetuple())
+        except botocore.exceptions.BotoCoreError as e:
+            click.echo(click.style(type(e).__name__, fg="red") + ": " + e.args[0])
+            sys.exit(-1)
         except Exception as e:
             click.echo(click.style("Warning!", fg="red") + " Couldn't get function " + self.lambda_name +
                        " in " + self.zappa.aws_region + " - have you deployed yet?")
@@ -898,9 +901,9 @@ class ZappaCLI(object):
 
             # update binary support
             if self.binary_support:
-                self.zappa.add_binary_support(api_id=api_id)
+                self.zappa.add_binary_support(api_id=api_id, cors=self.cors)
             else:
-                self.zappa.remove_binary_support(api_id=api_id)
+                self.zappa.remove_binary_support(api_id=api_id, cors=self.cors)
 
             endpoint_url = self.deploy_api_gateway(api_id)
 
@@ -2137,12 +2140,13 @@ class ZappaCLI(object):
                 env_dict['AWS_REGION'] = self.aws_region
             env_dict.update(dict(self.environment_variables))
 
-            # Environment variable keys can't be Unicode
+            # Environment variable keys must be ascii
             # https://github.com/Miserlou/Zappa/issues/604
+            # https://github.com/Miserlou/Zappa/issues/998
             try:
-                env_dict = dict((k.encode('ascii'), v) for (k, v) in env_dict.items())
-            except Exception: # pragma: no cover
-                    raise ValueError("Environment variable keys must not be unicode.")
+                env_dict = dict((k.encode('ascii').decode('ascii'), v) for (k, v) in env_dict.items())
+            except Exception:
+                raise ValueError("Environment variable keys must be ascii.")
 
             settings_s = settings_s + "ENVIRONMENT_VARIABLES={0}\n".format(
                     env_dict
